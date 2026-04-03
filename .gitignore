@@ -38,3 +38,5 @@ backend/data/imagegpt.db
 backend/data/exports/*
 !backend/data/exports/.gitkeep
 backend/data/test_tmp/
+backend/data/tmp/
+backend/data/recipes/*.imagegpt.recipe.json
