@@ -21,10 +21,20 @@ node_modules/
 build/
 dist/
 .cache/
+.pytest_cache/
+pytest-cache-files-*/
+.tmp_pytest/
 
 # Env/Secrets
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
+
+# Runtime data
+backend/data/imagegpt.db
+backend/data/exports/*
+!backend/data/exports/.gitkeep
+backend/data/test_tmp/

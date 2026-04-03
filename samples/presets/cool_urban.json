@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "style_tag": "cool urban",
+  "confidence": 0.74,
+  "global_adjustments": {
+    "white_balance": { "temperature": -14, "tint": -2 },
+    "tone": { "exposure": -0.05, "contrast": 12, "highlights": -20, "shadows": 16, "whites": -2, "blacks": -10 },
+    "vibrance": -4,
+    "saturation": -10,
+    "finishing": { "clarity": 12, "dehaze": 8, "vignette": -10 }
+  },
+  "tone_curve": [
+    { "x": 0.0, "y": 0.02 },
+    { "x": 0.25, "y": 0.22 },
+    { "x": 0.5, "y": 0.48 },
+    { "x": 0.78, "y": 0.8 },
+    { "x": 1.0, "y": 0.98 }
+  ],
+  "hsl_bands": {
+    "red": { "hue": -3, "saturation": -10, "luminance": -2 },
+    "orange": { "hue": -4, "saturation": -12, "luminance": 0 },
+    "yellow": { "hue": -12, "saturation": -24, "luminance": -6 },
+    "green": { "hue": -10, "saturation": -32, "luminance": -10 },
+    "aqua": { "hue": 8, "saturation": 4, "luminance": -4 },
+    "blue": { "hue": 10, "saturation": 6, "luminance": -6 },
+    "purple": { "hue": 0, "saturation": -8, "luminance": -2 },
+    "magenta": { "hue": 0, "saturation": -8, "luminance": -2 }
+  },
+  "color_grading": {
+    "shadows": { "hue": 215, "sat": 14 },
+    "midtones": { "hue": 200, "sat": 5 },
+    "highlights": { "hue": 45, "sat": 4 },
+    "balance": -14,
+    "blend": 58
+  },
+  "notes": "Cooler palette with urban neutrality.",
+  "warnings": []
+}

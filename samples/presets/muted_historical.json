@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "style_tag": "muted historical",
+  "confidence": 0.73,
+  "global_adjustments": {
+    "white_balance": { "temperature": 8, "tint": 0 },
+    "tone": { "exposure": -0.15, "contrast": -4, "highlights": -24, "shadows": 18, "whites": -12, "blacks": 8 },
+    "vibrance": -20,
+    "saturation": -18,
+    "finishing": { "clarity": -4, "dehaze": 2, "vignette": -18 }
+  },
+  "tone_curve": [
+    { "x": 0.0, "y": 0.05 },
+    { "x": 0.25, "y": 0.25 },
+    { "x": 0.5, "y": 0.5 },
+    { "x": 0.8, "y": 0.76 },
+    { "x": 1.0, "y": 0.95 }
+  ],
+  "hsl_bands": {
+    "red": { "hue": 2, "saturation": -14, "luminance": 2 },
+    "orange": { "hue": -2, "saturation": -18, "luminance": 4 },
+    "yellow": { "hue": -20, "saturation": -35, "luminance": 2 },
+    "green": { "hue": -22, "saturation": -45, "luminance": -2 },
+    "aqua": { "hue": -8, "saturation": -26, "luminance": -2 },
+    "blue": { "hue": -6, "saturation": -22, "luminance": -3 },
+    "purple": { "hue": 0, "saturation": -15, "luminance": 0 },
+    "magenta": { "hue": 0, "saturation": -15, "luminance": 0 }
+  },
+  "color_grading": {
+    "shadows": { "hue": 35, "sat": 6 },
+    "midtones": { "hue": 42, "sat": 8 },
+    "highlights": { "hue": 52, "sat": 6 },
+    "balance": 18,
+    "blend": 60
+  },
+  "notes": "Low-saturation warm archival mood.",
+  "warnings": []
+}

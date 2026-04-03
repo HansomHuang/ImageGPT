@@ -1,0 +1,12 @@
+{
+  "example_jpeg": {
+    "file_name": "sample_photo.jpg",
+    "camera_make": "Sony",
+    "camera_model": "ILCE-7M4",
+    "iso": 200,
+    "shutter": "1/250",
+    "aperture": "f/2.8",
+    "focal_length": "50mm",
+    "note": "Metadata-only sample, no copyrighted image file included."
+  }
+}
