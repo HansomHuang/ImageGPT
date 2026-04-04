@@ -6,10 +6,16 @@ Electron + TypeScript desktop UI.
 
 ```powershell
 npm install
+npm run build
 npm run dev
 ```
 
 Assumes backend is available at `http://127.0.0.1:8000`.
+
+Notes:
+- `npm run dev` now starts Electron without forcing a rebuild first.
+- Use `npm run dev:build` when you want an explicit rebuild before launch.
+- Main/preload builds mark `electron` as external to avoid bundling Electron runtime stubs into `dist/main/main.js`.
 
 ## Electron Install Troubleshooting
 

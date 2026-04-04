@@ -11,6 +11,7 @@ await build({
   outfile: "dist/main/main.js",
   bundle: true,
   platform: "node",
+  external: ["electron"],
   target: "node20",
 });
 
@@ -19,6 +20,7 @@ await build({
   outfile: "dist/preload/preload.js",
   bundle: true,
   platform: "node",
+  external: ["electron"],
   target: "node20",
 });
 

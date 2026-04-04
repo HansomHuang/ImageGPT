@@ -5,7 +5,8 @@
   "main": "dist/main/main.js",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "npm run build && node scripts/check-electron.mjs && electron .",
+    "dev": "node scripts/check-electron.mjs && electron .",
+    "dev:build": "npm run build && npm run dev",
     "doctor:electron": "node scripts/check-electron.mjs --doctor"
   },
   "devDependencies": {
