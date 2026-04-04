@@ -32,8 +32,14 @@ class AIService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.client = None
-        if OpenAI and settings.openai_api_key:
-            self.client = OpenAI(api_key=settings.openai_api_key)
+        if OpenAI:
+            if settings.dashscope_api_key:
+                self.client = OpenAI(
+                    api_key=settings.dashscope_api_key,
+                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                )
+            elif settings.openai_api_key:
+                self.client = OpenAI(api_key=settings.openai_api_key)
 
     def _build_preview_data_url(self, image_path: Path, max_edge: int = 1024) -> str:
         with Image.open(image_path) as image:
@@ -72,11 +78,14 @@ class AIService:
         if self.client is None:
             return (
                 default_recipe().model_dump(mode="json"),
-                ["OpenAI client unavailable or OPENAI_API_KEY missing. Using conservative fallback recipe."],
+                [
+                    "OpenAI-compatible client unavailable or API key missing "
+                    "(set DASHSCOPE_API_KEY for Qwen or OPENAI_API_KEY for OpenAI). "
+                    "Using conservative fallback recipe."
+                ],
                 True,
             )
 
-        data_url = self._build_preview_data_url(image_path)
         user_text = (
             "Analyze this photo and output a color recipe.\n"
             f"Style intent: {style_intent or 'none'}\n"
@@ -85,6 +94,7 @@ class AIService:
         )
 
         try:
+            data_url = self._build_preview_data_url(image_path)
             response = self.client.responses.create(
                 model=self.settings.openai_model,
                 input=[
@@ -119,4 +129,3 @@ class AIService:
                 [f"OpenAI analyze failed ({exc}). Using fallback recipe."],
                 True,
             )
-

@@ -29,6 +29,35 @@ def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _looks_like_recipe(payload: dict[str, Any]) -> bool:
+    anchors = {"version", "style_tag", "global_adjustments", "tone_curve", "hsl_bands", "color_grading"}
+    return len(anchors.intersection(payload.keys())) >= 2
+
+
+def _extract_recipe_payload(candidate: dict[str, Any], depth: int = 0) -> dict[str, Any]:
+    if depth > 4:
+        return candidate
+    if _looks_like_recipe(candidate):
+        return candidate
+
+    preferred_keys = ("color_recipe", "recipe", "result", "data", "payload", "output", "response")
+    for key in preferred_keys:
+        nested = candidate.get(key)
+        if isinstance(nested, dict):
+            extracted = _extract_recipe_payload(nested, depth + 1)
+            if _looks_like_recipe(extracted):
+                return extracted
+    return candidate
+
+
+def _brief_error(exc: Exception) -> str:
+    text = str(exc).strip().replace("\r", "")
+    if not text:
+        return exc.__class__.__name__
+    first_line = text.split("\n")[0]
+    return first_line[:220]
+
+
 def _sanitize_curve(curve: list[dict[str, Any]]) -> list[dict[str, float]]:
     cleaned: list[dict[str, float]] = []
     for point in curve:
@@ -50,6 +79,20 @@ def _sanitize_curve(curve: list[dict[str, Any]]) -> list[dict[str, float]]:
 
 
 def clamp_recipe_dict(candidate: dict[str, Any]) -> dict[str, Any]:
+    candidate = _extract_recipe_payload(candidate)
+    top_level_allowed = {
+        "version",
+        "style_tag",
+        "confidence",
+        "global_adjustments",
+        "tone_curve",
+        "hsl_bands",
+        "color_grading",
+        "notes",
+        "warnings",
+    }
+    candidate = {k: v for k, v in candidate.items() if k in top_level_allowed}
+
     recipe = _deep_merge(default_recipe().model_dump(mode="json"), candidate)
     recipe["version"] = "1.0"
     recipe["style_tag"] = str(recipe.get("style_tag", "default"))[:64] or "default"
@@ -99,13 +142,16 @@ def validate_recipe_or_fallback(
 ) -> tuple[RecipeModel, list[str], bool]:
     messages: list[str] = []
     fallback_used = False
+    candidate = _extract_recipe_payload(candidate)
 
     try:
         jsonschema.validate(instance=candidate, schema=schema)
         model = RecipeModel.model_validate(candidate)
         return model, messages, fallback_used
     except Exception as first_error:
-        messages.append(f"AI recipe validation failed, attempting safe repair: {first_error}")
+        messages.append(
+            "AI recipe validation failed, attempting safe repair: " f"{_brief_error(first_error)}"
+        )
 
     repaired = clamp_recipe_dict(candidate)
     try:
@@ -114,7 +160,9 @@ def validate_recipe_or_fallback(
         messages.append("Recipe auto-repair succeeded with clamped values.")
         return model, messages, fallback_used
     except (ValidationError, jsonschema.ValidationError, ValueError) as second_error:
-        messages.append(f"Recipe repair failed. Falling back to conservative defaults: {second_error}")
+        messages.append(
+            "Recipe repair failed. Falling back to conservative defaults: "
+            f"{_brief_error(second_error)}"
+        )
         fallback_used = True
         return default_recipe(), messages, fallback_used
-

@@ -95,12 +95,41 @@ def import_image(payload: ImportImageRequest) -> ImportImageResponse:
 def analyze_with_ai(payload: AnalyzeRequest) -> AnalyzeResponse:
     image_path = resolve_existing_path(payload.image_path)
     image_metadata = payload.metadata or app.state.image_service.import_metadata(image_path)
-    raw_recipe, ai_messages, ai_fallback = app.state.ai_service.analyze(
-        image_path=image_path,
-        style_intent=payload.style_intent,
-        metadata=image_metadata,
-        schema=app.state.schema,
-    )
+    analysis_image_path = image_path
+    preview_error: Exception | None = None
+    try:
+        preview_path, _, _ = app.state.image_service.render_preview(
+            image_path=image_path,
+            recipe=default_recipe().model_dump(mode="json"),
+            prefer_raw=True,
+        )
+        analysis_image_path = preview_path
+    except Exception as exc:
+        preview_error = exc
+        LOGGER.warning("Analyze preview generation failed, using original image: %s", exc)
+
+    raw_exts = {".arw", ".cr2", ".cr3", ".nef", ".nrw", ".dng"}
+    if preview_error is not None and image_path.suffix.lower() in raw_exts:
+        raw_recipe = default_recipe().model_dump(mode="json")
+        ai_messages = [
+            "RAW analysis preview generation failed. Build native core (LibRaw/OpenImageIO) "
+            f"to enable RAW analyze. Original error: {preview_error}"
+        ]
+        ai_fallback = True
+    else:
+        try:
+            raw_recipe, ai_messages, ai_fallback = app.state.ai_service.analyze(
+                image_path=analysis_image_path,
+                style_intent=payload.style_intent,
+                metadata=image_metadata,
+                schema=app.state.schema,
+            )
+        except Exception as exc:
+            LOGGER.exception("Unhandled analyze failure: %s", exc)
+            raw_recipe = default_recipe().model_dump(mode="json")
+            ai_messages = [f"AI analyze failed before validation: {exc}"]
+            ai_fallback = True
+
     model, validation_messages, validation_fallback = validate_recipe_or_fallback(
         raw_recipe, app.state.schema
     )

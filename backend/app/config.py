@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    dashscope_api_key: str = Field(default="", alias="DASHSCOPE_API_KEY")
     openai_model: str = Field(default=_OPENAI.get("model", "gpt-4.1-mini"), alias="OPENAI_MODEL")
 
     backend_host: str = Field(default=_BACKEND.get("host", "127.0.0.1"), alias="IMGGPT_BACKEND_HOST")
@@ -65,6 +66,15 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     settings = Settings()
+    if not settings.db_path.is_absolute():
+        settings.db_path = (ROOT_DIR / settings.db_path).resolve()
+    if not settings.recipes_dir.is_absolute():
+        settings.recipes_dir = (ROOT_DIR / settings.recipes_dir).resolve()
+    if not settings.presets_dir.is_absolute():
+        settings.presets_dir = (ROOT_DIR / settings.presets_dir).resolve()
+    if not settings.export_dir.is_absolute():
+        settings.export_dir = (ROOT_DIR / settings.export_dir).resolve()
+
     settings.recipes_dir.mkdir(parents=True, exist_ok=True)
     settings.presets_dir.mkdir(parents=True, exist_ok=True)
     settings.export_dir.mkdir(parents=True, exist_ok=True)
