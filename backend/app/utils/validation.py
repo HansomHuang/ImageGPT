@@ -45,8 +45,7 @@ def _extract_recipe_payload(candidate: dict[str, Any], depth: int = 0) -> dict[s
         nested = candidate.get(key)
         if isinstance(nested, dict):
             extracted = _extract_recipe_payload(nested, depth + 1)
-            if _looks_like_recipe(extracted):
-                return extracted
+            return extracted
     return candidate
 
 
@@ -131,8 +130,17 @@ def clamp_recipe_dict(candidate: dict[str, Any]) -> dict[str, Any]:
     grading["balance"] = clamp(float(grading.get("balance", 0)), -100, 100)
     grading["blend"] = clamp(float(grading.get("blend", 50)), 0, 100)
 
-    recipe["notes"] = str(recipe.get("notes", ""))[:256]
-    warnings = [str(item)[:140] for item in recipe.get("warnings", [])][:8]
+    notes_value = recipe.get("notes", "")
+    if isinstance(notes_value, list):
+        notes_value = " ".join(str(item) for item in notes_value)
+    elif notes_value is None:
+        notes_value = ""
+    recipe["notes"] = str(notes_value)[:256]
+
+    raw_warnings = recipe.get("warnings", [])
+    if isinstance(raw_warnings, str):
+        raw_warnings = [raw_warnings]
+    warnings = [str(item)[:140] for item in raw_warnings][:8]
     recipe["warnings"] = warnings
     return recipe
 

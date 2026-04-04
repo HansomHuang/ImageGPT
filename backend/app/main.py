@@ -22,6 +22,7 @@ from app.schemas import (
     PresetLoadResponse,
     PresetSaveRequest,
     PresetSummary,
+    RecipeModel,
     default_recipe,
     recipe_to_dict,
 )
@@ -53,6 +54,67 @@ def resolve_existing_path(raw: str) -> Path:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Image not found: {path}")
     return path
+
+
+def _recipe_is_identity(recipe: RecipeModel) -> bool:
+    g = recipe.global_adjustments
+    tone = g.tone
+    wb = g.white_balance
+    fin = g.finishing
+    if any(
+        abs(v) > 1e-3
+        for v in (
+            wb.temperature,
+            wb.tint,
+            tone.exposure,
+            tone.contrast,
+            tone.highlights,
+            tone.shadows,
+            tone.whites,
+            tone.blacks,
+            g.vibrance,
+            g.saturation,
+            fin.clarity,
+            fin.dehaze,
+            fin.vignette,
+        )
+    ):
+        return False
+
+    for point in recipe.tone_curve:
+        if abs(point.x - point.y) > 1e-3:
+            return False
+
+    for band in recipe.hsl_bands.model_dump().values():
+        if any(abs(float(band[key])) > 1e-3 for key in ("hue", "saturation", "luminance")):
+            return False
+
+    c = recipe.color_grading
+    if any(
+        abs(v) > 1e-3
+        for v in (
+            c.shadows.sat,
+            c.midtones.sat,
+            c.highlights.sat,
+            c.balance,
+            c.blend - 50.0,
+        )
+    ):
+        return False
+    return True
+
+
+def _preset_for_style_intent(style_intent: str) -> str:
+    text = style_intent.lower()
+    if any(k in text for k in ("cinematic", "filmic")):
+        return "restrained_cinematic"
+    if any(k in text for k in ("portrait", "skin", "warm")):
+        return "warm_portrait"
+    if any(k in text for k in ("urban", "cool", "street")):
+        return "cool_urban"
+    if any(k in text for k in ("historical", "muted", "vintage")):
+        return "muted_historical"
+    return "natural_clean"
 
 
 @app.on_event("startup")
@@ -133,6 +195,19 @@ def analyze_with_ai(payload: AnalyzeRequest) -> AnalyzeResponse:
     model, validation_messages, validation_fallback = validate_recipe_or_fallback(
         raw_recipe, app.state.schema
     )
+    if payload.style_intent.strip() and _recipe_is_identity(model):
+        preset_name = _preset_for_style_intent(payload.style_intent)
+        try:
+            preset_recipe = app.state.preset_service.load_preset(preset_name)
+            model = RecipeModel.model_validate(preset_recipe)
+            validation_messages.append(
+                f"AI recipe was near-neutral; applied style-matched preset '{preset_name}'."
+            )
+        except Exception as exc:
+            validation_messages.append(
+                f"AI recipe was near-neutral; preset fallback '{preset_name}' failed: {exc}"
+            )
+
     fallback_used = ai_fallback or validation_fallback
     messages = [*ai_messages, *validation_messages]
     history_insert(
