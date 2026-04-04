@@ -66,3 +66,11 @@ def test_schema_validation_accepts_wrapped_color_recipe() -> None:
     assert model.style_tag == "wrapped"
     assert fallback is False
     assert messages == []
+
+
+def test_schema_validation_handles_non_object_payload() -> None:
+    schema = load_recipe_schema(get_settings().schema_path)
+    model, messages, fallback = validate_recipe_or_fallback(["bad", "shape"], schema)
+    assert model.version == "1.0"
+    assert fallback is False
+    assert any("not a recipe object" in msg for msg in messages)

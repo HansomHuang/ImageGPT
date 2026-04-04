@@ -34,9 +34,17 @@ def _looks_like_recipe(payload: dict[str, Any]) -> bool:
     return len(anchors.intersection(payload.keys())) >= 2
 
 
-def _extract_recipe_payload(candidate: dict[str, Any], depth: int = 0) -> dict[str, Any]:
+def _extract_recipe_payload(candidate: Any, depth: int = 0) -> dict[str, Any]:
     if depth > 4:
-        return candidate
+        return {}
+    if isinstance(candidate, list):
+        for item in candidate:
+            extracted = _extract_recipe_payload(item, depth + 1)
+            if _looks_like_recipe(extracted):
+                return extracted
+        return {}
+    if not isinstance(candidate, dict):
+        return {}
     if _looks_like_recipe(candidate):
         return candidate
 
@@ -77,7 +85,7 @@ def _sanitize_curve(curve: list[dict[str, Any]]) -> list[dict[str, float]]:
     return cleaned[:12]
 
 
-def clamp_recipe_dict(candidate: dict[str, Any]) -> dict[str, Any]:
+def clamp_recipe_dict(candidate: Any) -> dict[str, Any]:
     candidate = _extract_recipe_payload(candidate)
     top_level_allowed = {
         "version",
@@ -146,11 +154,13 @@ def clamp_recipe_dict(candidate: dict[str, Any]) -> dict[str, Any]:
 
 
 def validate_recipe_or_fallback(
-    candidate: dict[str, Any], schema: dict[str, Any]
+    candidate: Any, schema: dict[str, Any]
 ) -> tuple[RecipeModel, list[str], bool]:
     messages: list[str] = []
     fallback_used = False
     candidate = _extract_recipe_payload(candidate)
+    if not candidate:
+        messages.append("AI output was not a recipe object. Attempting safe repair from defaults.")
 
     try:
         jsonschema.validate(instance=candidate, schema=schema)

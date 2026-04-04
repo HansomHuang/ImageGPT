@@ -192,9 +192,15 @@ def analyze_with_ai(payload: AnalyzeRequest) -> AnalyzeResponse:
             ai_messages = [f"AI analyze failed before validation: {exc}"]
             ai_fallback = True
 
-    model, validation_messages, validation_fallback = validate_recipe_or_fallback(
-        raw_recipe, app.state.schema
-    )
+    try:
+        model, validation_messages, validation_fallback = validate_recipe_or_fallback(
+            raw_recipe, app.state.schema
+        )
+    except Exception as exc:
+        LOGGER.exception("Unexpected validation failure during analyze: %s", exc)
+        model = default_recipe()
+        validation_messages = [f"Unexpected validation failure. Using defaults: {exc}"]
+        validation_fallback = True
     if payload.style_intent.strip() and _recipe_is_identity(model):
         preset_name = _preset_for_style_intent(payload.style_intent)
         try:

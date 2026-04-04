@@ -17,6 +17,11 @@ class _NeutralAIService:
         return {"notes": ["cinematic"], "warnings": ["test"]}, [], False
 
 
+class _ListAIService:
+    def analyze(self, **_kwargs):  # type: ignore[no-untyped-def]
+        return ["not", "an", "object"], [], False
+
+
 def test_analyze_endpoint_handles_internal_ai_failure(sample_jpeg: Path) -> None:
     with TestClient(app) as client:
         original = app.state.ai_service
@@ -56,3 +61,20 @@ def test_analyze_endpoint_applies_style_preset_when_recipe_is_neutral(sample_jpe
         assert any("style-matched preset" in msg for msg in body["messages"])
         tone = body["recipe"]["global_adjustments"]["tone"]
         assert tone["contrast"] != 0 or tone["highlights"] != 0
+
+
+def test_analyze_endpoint_handles_non_object_ai_payload(sample_jpeg: Path) -> None:
+    with TestClient(app) as client:
+        original = app.state.ai_service
+        app.state.ai_service = _ListAIService()
+        try:
+            response = client.post(
+                "/v1/ai/analyze",
+                json={"image_path": str(sample_jpeg), "style_intent": "energetic and exposed", "metadata": {}},
+            )
+        finally:
+            app.state.ai_service = original
+
+        assert response.status_code == 200
+        body = response.json()
+        assert any("not a recipe object" in msg for msg in body["messages"])
