@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -104,17 +106,195 @@ def _recipe_is_identity(recipe: RecipeModel) -> bool:
     return True
 
 
-def _preset_for_style_intent(style_intent: str) -> str:
-    text = style_intent.lower()
-    if any(k in text for k in ("cinematic", "filmic")):
-        return "restrained_cinematic"
-    if any(k in text for k in ("portrait", "skin", "warm")):
-        return "warm_portrait"
-    if any(k in text for k in ("urban", "cool", "street")):
-        return "cool_urban"
-    if any(k in text for k in ("historical", "muted", "vintage")):
-        return "muted_historical"
-    return "natural_clean"
+def _clamp(value: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, value))
+
+
+def _synthesize_recipe_from_style_intent(style_intent: str) -> RecipeModel:
+    text = style_intent.lower().strip()
+    recipe = default_recipe().model_dump(mode="json")
+    recipe["style_tag"] = text[:64] or "intent-fallback"
+    recipe["confidence"] = 0.62
+
+    strong_words = {"very", "extremely", "intense", "dramatic", "strong", "bold"}
+    mild_words = {"slight", "slightly", "gentle", "subtle", "light", "softly"}
+    tokens = re.findall(r"[a-zA-Z]+", text)
+    intensity = 1.0 + 0.35 * sum(t in strong_words for t in tokens) - 0.22 * sum(
+        t in mild_words for t in tokens
+    )
+    intensity = _clamp(float(intensity), 0.6, 1.8)
+
+    def add(path: str, delta: float) -> None:
+        keys = path.split(".")
+        node: dict[str, Any] = recipe
+        for key in keys[:-1]:
+            node = node[key]
+        node[keys[-1]] = float(node[keys[-1]]) + delta
+
+    matched = 0
+    effect_profiles: list[tuple[tuple[str, ...], dict[str, float]]] = [
+        (
+            ("energetic", "vivid", "punchy", "dynamic"),
+            {
+                "global_adjustments.tone.contrast": 22,
+                "global_adjustments.vibrance": 26,
+                "global_adjustments.saturation": 10,
+                "global_adjustments.finishing.clarity": 16,
+                "global_adjustments.finishing.dehaze": 8,
+            },
+        ),
+        (
+            ("exposed", "bright", "airy", "highkey", "high-key"),
+            {
+                "global_adjustments.tone.exposure": 0.35,
+                "global_adjustments.tone.whites": 16,
+                "global_adjustments.tone.shadows": 8,
+                "global_adjustments.tone.highlights": -8,
+            },
+        ),
+        (
+            ("moody", "dark", "lowkey", "low-key"),
+            {
+                "global_adjustments.tone.exposure": -0.35,
+                "global_adjustments.tone.blacks": -16,
+                "global_adjustments.tone.highlights": -12,
+                "global_adjustments.tone.contrast": 10,
+                "global_adjustments.saturation": -8,
+            },
+        ),
+        (
+            ("cinematic", "filmic", "movie"),
+            {
+                "global_adjustments.tone.contrast": 14,
+                "global_adjustments.tone.highlights": -26,
+                "global_adjustments.tone.shadows": 20,
+                "global_adjustments.tone.blacks": -10,
+                "global_adjustments.saturation": -10,
+                "global_adjustments.finishing.vignette": -16,
+                "color_grading.shadows.hue": 210,
+                "color_grading.shadows.sat": 12,
+                "color_grading.highlights.hue": 45,
+                "color_grading.highlights.sat": 8,
+                "color_grading.balance": -8,
+                "color_grading.blend": 12,
+            },
+        ),
+        (
+            ("warm", "golden", "sunset"),
+            {
+                "global_adjustments.white_balance.temperature": 18,
+                "global_adjustments.white_balance.tint": 4,
+                "global_adjustments.saturation": 4,
+            },
+        ),
+        (
+            ("cool", "blue", "icy"),
+            {
+                "global_adjustments.white_balance.temperature": -18,
+                "global_adjustments.white_balance.tint": -2,
+                "global_adjustments.saturation": -3,
+            },
+        ),
+        (
+            ("muted", "vintage", "historical", "retro"),
+            {
+                "global_adjustments.vibrance": -18,
+                "global_adjustments.saturation": -20,
+                "global_adjustments.tone.contrast": -6,
+                "global_adjustments.finishing.vignette": -14,
+                "global_adjustments.white_balance.temperature": 8,
+            },
+        ),
+        (
+            ("portrait", "skin", "face"),
+            {
+                "hsl_bands.orange.saturation": 8,
+                "hsl_bands.orange.luminance": 6,
+                "hsl_bands.red.saturation": 5,
+                "global_adjustments.white_balance.temperature": 6,
+                "global_adjustments.tone.highlights": -8,
+            },
+        ),
+        (
+            ("natural", "clean", "neutral"),
+            {
+                "global_adjustments.tone.contrast": 6,
+                "global_adjustments.tone.highlights": -10,
+                "global_adjustments.tone.shadows": 8,
+                "global_adjustments.vibrance": 6,
+            },
+        ),
+    ]
+
+    for keywords, effects in effect_profiles:
+        if any(word in text for word in keywords):
+            matched += 1
+            for field, value in effects.items():
+                add(field, value * intensity)
+
+    if matched == 0:
+        # Deterministic free-form fallback for arbitrary prompts.
+        digest = hashlib.sha1(text.encode("utf-8")).digest()
+        n1 = digest[0] / 255.0
+        n2 = digest[1] / 255.0
+        n3 = digest[2] / 255.0
+        n4 = digest[3] / 255.0
+        add("global_adjustments.tone.exposure", (n1 - 0.5) * 0.6)
+        add("global_adjustments.tone.contrast", (n2 - 0.5) * 30.0)
+        add("global_adjustments.vibrance", (n3 - 0.5) * 30.0)
+        add("global_adjustments.white_balance.temperature", (n4 - 0.5) * 24.0)
+        add("global_adjustments.finishing.clarity", (n1 - 0.5) * 18.0)
+        add("hsl_bands.blue.saturation", (n2 - 0.5) * 18.0)
+        add("hsl_bands.orange.saturation", (0.5 - n3) * 16.0)
+        add("global_adjustments.finishing.vignette", -8.0)
+        add("color_grading.shadows.hue", 210.0)
+        add("color_grading.shadows.sat", 8.0)
+        add("color_grading.blend", 8.0)
+
+    contrast = recipe["global_adjustments"]["tone"]["contrast"]
+    s_curve_strength = _clamp(abs(float(contrast)) / 100.0, 0.12, 0.32)
+    recipe["tone_curve"] = [
+        {"x": 0.0, "y": 0.0 + s_curve_strength * 0.18},
+        {"x": 0.25, "y": 0.25 - s_curve_strength * 0.14},
+        {"x": 0.5, "y": 0.5},
+        {"x": 0.75, "y": 0.75 + s_curve_strength * 0.14},
+        {"x": 1.0, "y": 1.0 - s_curve_strength * 0.18},
+    ]
+
+    # Clamp ranges.
+    g = recipe["global_adjustments"]
+    wb = g["white_balance"]
+    tone = g["tone"]
+    fin = g["finishing"]
+    wb["temperature"] = _clamp(float(wb["temperature"]), -100, 100)
+    wb["tint"] = _clamp(float(wb["tint"]), -100, 100)
+    tone["exposure"] = _clamp(float(tone["exposure"]), -5, 5)
+    for key in ("contrast", "highlights", "shadows", "whites", "blacks"):
+        tone[key] = _clamp(float(tone[key]), -100, 100)
+    g["vibrance"] = _clamp(float(g["vibrance"]), -100, 100)
+    g["saturation"] = _clamp(float(g["saturation"]), -100, 100)
+    for key in ("clarity", "dehaze", "vignette"):
+        fin[key] = _clamp(float(fin[key]), -100, 100)
+
+    for band in ("red", "orange", "yellow", "green", "aqua", "blue", "purple", "magenta"):
+        hsl = recipe["hsl_bands"][band]
+        hsl["hue"] = _clamp(float(hsl["hue"]), -100, 100)
+        hsl["saturation"] = _clamp(float(hsl["saturation"]), -100, 100)
+        hsl["luminance"] = _clamp(float(hsl["luminance"]), -100, 100)
+
+    grading = recipe["color_grading"]
+    for zone in ("shadows", "midtones", "highlights"):
+        grading[zone]["hue"] = _clamp(float(grading[zone]["hue"]), 0, 360)
+        grading[zone]["sat"] = _clamp(float(grading[zone]["sat"]), 0, 100)
+    grading["balance"] = _clamp(float(grading["balance"]), -100, 100)
+    grading["blend"] = _clamp(float(grading["blend"]), 0, 100)
+
+    recipe["notes"] = (
+        f"Prompt-driven fallback recipe generated from style intent: '{style_intent[:96]}'. "
+        "AI analysis result was near-neutral, so adjustments were synthesized."
+    )[:256]
+    recipe["warnings"] = []
+    return RecipeModel.model_validate(recipe)
 
 
 @app.on_event("startup")
@@ -201,20 +381,20 @@ def analyze_with_ai(payload: AnalyzeRequest) -> AnalyzeResponse:
         model = default_recipe()
         validation_messages = [f"Unexpected validation failure. Using defaults: {exc}"]
         validation_fallback = True
+    synthesized_fallback = False
     if payload.style_intent.strip() and _recipe_is_identity(model):
-        preset_name = _preset_for_style_intent(payload.style_intent)
         try:
-            preset_recipe = app.state.preset_service.load_preset(preset_name)
-            model = RecipeModel.model_validate(preset_recipe)
+            model = _synthesize_recipe_from_style_intent(payload.style_intent)
+            synthesized_fallback = True
             validation_messages.append(
-                f"AI recipe was near-neutral; applied style-matched preset '{preset_name}'."
+                "AI recipe was near-neutral; generated prompt-driven fallback adjustments."
             )
         except Exception as exc:
             validation_messages.append(
-                f"AI recipe was near-neutral; preset fallback '{preset_name}' failed: {exc}"
+                f"AI recipe was near-neutral; prompt-driven fallback synthesis failed: {exc}"
             )
 
-    fallback_used = ai_fallback or validation_fallback
+    fallback_used = ai_fallback or validation_fallback or synthesized_fallback
     messages = [*ai_messages, *validation_messages]
     history_insert(
         settings.db_path,

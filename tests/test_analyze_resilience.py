@@ -58,7 +58,8 @@ def test_analyze_endpoint_applies_style_preset_when_recipe_is_neutral(sample_jpe
 
         assert response.status_code == 200
         body = response.json()
-        assert any("style-matched preset" in msg for msg in body["messages"])
+        assert body["fallback_used"] is True
+        assert any("prompt-driven fallback adjustments" in msg for msg in body["messages"])
         tone = body["recipe"]["global_adjustments"]["tone"]
         assert tone["contrast"] != 0 or tone["highlights"] != 0
 
@@ -78,3 +79,28 @@ def test_analyze_endpoint_handles_non_object_ai_payload(sample_jpeg: Path) -> No
         assert response.status_code == 200
         body = response.json()
         assert any("not a recipe object" in msg for msg in body["messages"])
+
+
+def test_analyze_endpoint_generates_nonzero_recipe_for_arbitrary_prompt(sample_jpeg: Path) -> None:
+    with TestClient(app) as client:
+        original = app.state.ai_service
+        app.state.ai_service = _NeutralAIService()
+        try:
+            response = client.post(
+                "/v1/ai/analyze",
+                json={
+                    "image_path": str(sample_jpeg),
+                    "style_intent": "energetic and exposed",
+                    "metadata": {},
+                },
+            )
+        finally:
+            app.state.ai_service = original
+
+        assert response.status_code == 200
+        body = response.json()
+        recipe = body["recipe"]
+        tone = recipe["global_adjustments"]["tone"]
+        assert tone["exposure"] > 0
+        assert tone["contrast"] > 0
+        assert recipe["global_adjustments"]["vibrance"] > 0

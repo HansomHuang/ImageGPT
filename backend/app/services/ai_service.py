@@ -25,6 +25,10 @@ You must return JSON only, strictly matching the provided schema.
 Do not output prose except the notes/warnings fields in JSON.
 Use conservative values when uncertain.
 Do not invent unsupported fields.
+Treat the user's style intent as a direct creative prompt, not a preset label.
+Translate the prompt into concrete non-zero color grading parameters when appropriate.
+If the user asks for brighter, darker, warmer, cooler, more energetic, softer, moodier, cinematic,
+cleaner, muted, vivid, or similar directions, reflect that in the numeric recipe fields.
 """
 
 
@@ -90,6 +94,8 @@ class AIService:
             "Analyze this photo and output a color recipe.\n"
             f"Style intent: {style_intent or 'none'}\n"
             f"Metadata: {json.dumps(metadata, ensure_ascii=True)}\n"
+            "The style intent is the user's actual editing prompt. "
+            "Map it into numeric adjustments instead of only describing the look in notes.\n"
             "Prioritize natural highlight rolloff, safe skin tones, and avoid clipping."
         )
 
