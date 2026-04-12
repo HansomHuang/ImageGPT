@@ -31,6 +31,8 @@ If the user asks for brighter, darker, warmer, cooler, more energetic, softer, m
 cleaner, muted, vivid, or similar directions, reflect that in the numeric recipe fields.
 """
 
+WRAPPED_RECIPE_KEYS = ("color_recipe", "recipe", "result", "data", "payload", "output", "response")
+
 
 class AIService:
     def __init__(self, settings: Settings) -> None:
@@ -127,6 +129,12 @@ class AIService:
             )
             raw_text = self._response_text(response)
             payload = json.loads(raw_text)
+            if isinstance(payload, dict) and style_intent and not payload.get("style_tag"):
+                payload["style_tag"] = style_intent[:64]
+                for key in WRAPPED_RECIPE_KEYS:
+                    nested = payload.get(key)
+                    if isinstance(nested, dict) and not nested.get("style_tag"):
+                        nested["style_tag"] = style_intent[:64]
             return payload, [], False
         except Exception as exc:
             LOGGER.exception("OpenAI analyze failed: %s", exc)
