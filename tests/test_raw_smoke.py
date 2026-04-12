@@ -69,11 +69,15 @@ def test_raw_pipeline_with_python_fallback(
     with TestClient(app) as client:
         import_res = client.post("/v1/images/import", json={"path": str(sample_raw_path)})
         assert import_res.status_code == 200
-        metadata = import_res.json()["metadata"]
+        import_body = import_res.json()
+        metadata = import_body["metadata"]
         assert metadata["is_raw"] is True
         assert metadata["decoder"] == "rawpy"
         assert metadata["width"] == 512
         assert metadata["height"] == 341
+        assert Path(import_body["preview_path"]).exists()
+        assert import_body["preview_width"] == 512
+        assert import_body["preview_height"] == 341
 
         recipe = client.post("/v1/recipe/reset").json()["recipe"]
 

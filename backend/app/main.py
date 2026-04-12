@@ -330,7 +330,27 @@ def import_image(payload: ImportImageRequest) -> ImportImageResponse:
         metadata = app.state.image_service.import_metadata(path)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Import failed: {exc}") from exc
-    return ImportImageResponse(path=str(path), exists=path.exists(), metadata=metadata)
+    preview_path: str | None = None
+    preview_width: int | None = None
+    preview_height: int | None = None
+    try:
+        rendered_preview, preview_width, preview_height = app.state.image_service.render_preview(
+            image_path=path,
+            recipe=default_recipe().model_dump(mode="json"),
+            prefer_raw=payload.prefer_raw,
+            variant="before",
+        )
+        preview_path = str(rendered_preview)
+    except Exception as exc:
+        LOGGER.warning("Import preview generation failed for %s: %s", path, exc)
+    return ImportImageResponse(
+        path=str(path),
+        exists=path.exists(),
+        metadata=metadata,
+        preview_path=preview_path,
+        preview_width=preview_width,
+        preview_height=preview_height,
+    )
 
 
 @app.post("/v1/ai/analyze", response_model=AnalyzeResponse)
@@ -344,6 +364,7 @@ def analyze_with_ai(payload: AnalyzeRequest) -> AnalyzeResponse:
             image_path=image_path,
             recipe=default_recipe().model_dump(mode="json"),
             prefer_raw=True,
+            variant="analysis",
         )
         analysis_image_path = preview_path
     except Exception as exc:
@@ -418,6 +439,7 @@ def apply_recipe(payload: ApplyRequest) -> ApplyResponse:
             image_path=image_path,
             recipe=model.model_dump(mode="json"),
             prefer_raw=payload.prefer_raw,
+            variant="after",
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Apply failed: {exc}") from exc

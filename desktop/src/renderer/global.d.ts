@@ -7,7 +7,12 @@ declare global {
       pickExportPath(defaultPath: string): Promise<string | null>;
       health(): Promise<{ ok: boolean }>;
       capabilities(): Promise<Record<string, unknown>>;
-      importImage(path: string): Promise<{ metadata: Record<string, unknown> }>;
+      importImage(path: string): Promise<{
+        metadata: Record<string, unknown>;
+        preview_path: string | null;
+        preview_width: number | null;
+        preview_height: number | null;
+      }>;
       analyze(
         imagePath: string,
         styleIntent: string,
@@ -32,4 +37,3 @@ declare global {
     };
   }
 }
-
