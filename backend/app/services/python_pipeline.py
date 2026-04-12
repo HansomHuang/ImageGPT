@@ -6,6 +6,14 @@ from typing import Any
 import numpy as np
 from PIL import ExifTags, Image
 
+try:
+    import rawpy
+except Exception as exc:  # pragma: no cover - optional dependency
+    rawpy = None
+    _RAWPY_IMPORT_ERROR = exc
+else:  # pragma: no cover - exercised indirectly in tests
+    _RAWPY_IMPORT_ERROR = None
+
 
 RAW_EXTENSIONS = {".arw", ".cr2", ".cr3", ".nef", ".nrw", ".dng"}
 
@@ -73,9 +81,42 @@ def _hsl_to_rgb(h: np.ndarray, s: np.ndarray, l: np.ndarray) -> tuple[np.ndarray
     return r, g, b
 
 
+def _require_rawpy() -> Any:
+    if rawpy is None:
+        message = "RAW decode requires the optional 'rawpy' package or the native core with LibRaw."
+        if _RAWPY_IMPORT_ERROR is not None:
+            message = f"{message} Import error: {_RAWPY_IMPORT_ERROR}"
+        raise RuntimeError(message)
+    return rawpy
+
+
+def _resize_float_image(image: np.ndarray, max_edge: int) -> np.ndarray:
+    if max(image.shape[0], image.shape[1]) <= max_edge:
+        return image
+    rgb8 = (_clamp01(image) * 255.0).astype(np.uint8)
+    preview = Image.fromarray(rgb8, mode="RGB")
+    preview.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+    return np.asarray(preview).astype(np.float32) / 255.0
+
+
+def _load_raw_image(path: Path, max_edge: int | None = None) -> np.ndarray:
+    rawpy_module = _require_rawpy()
+    with rawpy_module.imread(str(path)) as raw:
+        rgb = raw.postprocess(
+            use_camera_wb=True,
+            no_auto_bright=True,
+            output_color=rawpy_module.ColorSpace.sRGB,
+            output_bps=16,
+        )
+    image = rgb.astype(np.float32) / 65535.0
+    if max_edge is not None:
+        image = _resize_float_image(image, max_edge=max_edge)
+    return image
+
+
 def load_image(path: Path, max_edge: int | None = None) -> np.ndarray:
     if path.suffix.lower() in RAW_EXTENSIONS:
-        raise RuntimeError("RAW decode requires native core with LibRaw.")
+        return _load_raw_image(path, max_edge=max_edge)
     with Image.open(path) as image:
         image = image.convert("RGB")
         if max_edge and max(image.size) > max_edge:
@@ -89,7 +130,19 @@ def image_metadata(path: Path) -> dict[str, Any]:
     if not path.exists():
         return payload
     if payload["is_raw"]:
-        payload["warning"] = "RAW metadata extraction requires native core/LibRaw."
+        try:
+            rawpy_module = _require_rawpy()
+            with rawpy_module.imread(str(path)) as raw:
+                sizes = raw.sizes
+                payload["width"] = int(getattr(sizes, "width", getattr(sizes, "raw_width", 0)))
+                payload["height"] = int(getattr(sizes, "height", getattr(sizes, "raw_height", 0)))
+                payload["decoder"] = "rawpy"
+                if hasattr(sizes, "raw_width"):
+                    payload["raw_width"] = int(sizes.raw_width)
+                if hasattr(sizes, "raw_height"):
+                    payload["raw_height"] = int(sizes.raw_height)
+        except Exception as exc:
+            payload["warning"] = f"RAW metadata extraction unavailable: {exc}"
         return payload
     with Image.open(path) as image:
         payload["width"], payload["height"] = image.size
@@ -224,4 +277,3 @@ def save_image(image: np.ndarray, output_path: Path, image_format: str, quality:
         pil.save(output_path, format="TIFF", compression="tiff_deflate")
     else:
         raise ValueError(f"Unsupported format {image_format}")
-
