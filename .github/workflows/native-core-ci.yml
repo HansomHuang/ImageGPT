@@ -8,7 +8,7 @@ on:
 jobs:
   build-native-core:
     name: Native Core Build (Ubuntu)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -24,8 +24,14 @@ jobs:
             libraw-dev \
             liblcms2-dev \
             libopenimageio-dev \
+            openimageio-tools \
             pybind11-dev \
             python3-dev
+
+      - name: Verify OpenImageIO CLI tools
+        run: |
+          which iconvert
+          iconvert --help >/dev/null
 
       - name: Configure
         run: cmake -S core -B core/build -G Ninja -DCMAKE_BUILD_TYPE=Release
