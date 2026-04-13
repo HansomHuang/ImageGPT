@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImageGPT</title>
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>ImageGPT</h1>
+      <div class="status">
+        <span id="backendStatus">Backend: unknown</span>
+        <span id="coreStatus">Core: unknown</span>
+      </div>
+    </header>
+
+    <section class="controls">
+      <button id="importBtn">Import Image</button>
+      <input id="styleIntent" type="text" placeholder="Style intent (e.g. restrained cinematic)" />
+      <button id="analyzeBtn">Analyze with AI</button>
+      <button id="applyBtn">Apply</button>
+      <button id="resetBtn">Reset</button>
+      <select id="exportFormat">
+        <option value="jpeg">JPEG</option>
+        <option value="tiff">TIFF</option>
+      </select>
+      <input id="jpegQuality" type="number" min="1" max="100" value="92" />
+      <button id="exportBtn">Export</button>
+    </section>
+
+    <section class="presets">
+      <select id="presetSelect"></select>
+      <button id="loadPresetBtn">Load Preset</button>
+      <input id="presetName" type="text" placeholder="Preset name" />
+      <button id="savePresetBtn">Save Preset</button>
+    </section>
+
+    <main class="content">
+      <div class="panel">
+        <h2>Before</h2>
+        <img id="beforeImage" alt="Before preview" />
+      </div>
+      <div class="panel">
+        <h2>After</h2>
+        <img id="afterImage" alt="After preview" />
+      </div>
+      <div class="panel right">
+        <h2>Recipe JSON</h2>
+        <textarea id="recipeBox"></textarea>
+        <h2>Metadata</h2>
+        <pre id="metadataBox"></pre>
+        <h2>Log</h2>
+        <pre id="logBox"></pre>
+      </div>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
+

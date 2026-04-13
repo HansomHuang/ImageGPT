@@ -1,0 +1,18 @@
+{
+  "name": "imagegpt-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/check-electron.mjs && electron .",
+    "dev:build": "npm run build && npm run dev",
+    "doctor:electron": "node scripts/check-electron.mjs --doctor"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "electron": "^37.2.4",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2"
+  }
+}

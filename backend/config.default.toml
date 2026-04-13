@@ -1,0 +1,19 @@
+[openai]
+model = "gpt-4.1-mini"
+timeout_seconds = 45
+
+[backend]
+host = "127.0.0.1"
+port = 8000
+log_level = "INFO"
+preview_max_edge = 1536
+
+[export]
+jpeg_quality = 92
+default_format = "jpeg"
+
+[storage]
+db_path = "backend/data/imagegpt.db"
+presets_dir = "backend/data/presets"
+recipes_dir = "backend/data/recipes"
+exports_dir = "backend/data/exports"

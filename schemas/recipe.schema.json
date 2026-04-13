@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://imagegpt.local/schemas/recipe.schema.json",
+  "title": "ImageGPT Color Recipe v1",
+  "type": "object",
+  "required": [
+    "version",
+    "style_tag",
+    "confidence",
+    "global_adjustments",
+    "tone_curve",
+    "hsl_bands",
+    "color_grading"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "default": "1.0"
+    },
+    "style_tag": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5
+    },
+    "global_adjustments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "white_balance",
+        "tone",
+        "vibrance",
+        "saturation",
+        "finishing"
+      ],
+      "properties": {
+        "white_balance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["temperature", "tint"],
+          "properties": {
+            "temperature": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "tint": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 }
+          }
+        },
+        "tone": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exposure", "contrast", "highlights", "shadows", "whites", "blacks"],
+          "properties": {
+            "exposure": { "type": "number", "minimum": -5, "maximum": 5, "default": 0 },
+            "contrast": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "highlights": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "shadows": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "whites": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "blacks": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 }
+          }
+        },
+        "vibrance": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+        "saturation": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+        "finishing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["clarity", "dehaze", "vignette"],
+          "properties": {
+            "clarity": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "dehaze": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+            "vignette": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 }
+          }
+        }
+      }
+    },
+    "tone_curve": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["x", "y"],
+        "properties": {
+          "x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "y": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "default": [
+        { "x": 0.0, "y": 0.0 },
+        { "x": 1.0, "y": 1.0 }
+      ]
+    },
+    "hsl_bands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "aqua",
+        "blue",
+        "purple",
+        "magenta"
+      ],
+      "properties": {
+        "red": { "$ref": "#/$defs/hslBand" },
+        "orange": { "$ref": "#/$defs/hslBand" },
+        "yellow": { "$ref": "#/$defs/hslBand" },
+        "green": { "$ref": "#/$defs/hslBand" },
+        "aqua": { "$ref": "#/$defs/hslBand" },
+        "blue": { "$ref": "#/$defs/hslBand" },
+        "purple": { "$ref": "#/$defs/hslBand" },
+        "magenta": { "$ref": "#/$defs/hslBand" }
+      }
+    },
+    "color_grading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shadows", "midtones", "highlights", "balance", "blend"],
+      "properties": {
+        "shadows": { "$ref": "#/$defs/gradingTone" },
+        "midtones": { "$ref": "#/$defs/gradingTone" },
+        "highlights": { "$ref": "#/$defs/gradingTone" },
+        "balance": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+        "blend": { "type": "number", "minimum": 0, "maximum": 100, "default": 50 }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 256,
+      "default": ""
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "maxLength": 140
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "hslBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hue", "saturation", "luminance"],
+      "properties": {
+        "hue": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+        "saturation": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+        "luminance": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 }
+      }
+    },
+    "gradingTone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hue", "sat"],
+      "properties": {
+        "hue": { "type": "number", "minimum": 0, "maximum": 360, "default": 0 },
+        "sat": { "type": "number", "minimum": 0, "maximum": 100, "default": 0 }
+      }
+    }
+  }
+}
