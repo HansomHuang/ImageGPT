@@ -40,3 +40,8 @@ backend/data/exports/*
 backend/data/test_tmp/
 backend/data/tmp/
 backend/data/recipes/*.imagegpt.recipe.json
+backend/backend/
+
+# Local test assets
+_DSC3285.NEF
+b10274ae8c90.jpg
