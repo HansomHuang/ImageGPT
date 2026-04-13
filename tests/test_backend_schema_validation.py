@@ -107,3 +107,21 @@ def test_schema_validation_adapts_flat_provider_recipe() -> None:
     assert model.global_adjustments.vibrance == pytest.approx(31.0)
     assert model.global_adjustments.white_balance.temperature == pytest.approx(7.0)
     assert "Highlight rolloff" in model.notes
+
+
+def test_schema_validation_repairs_malformed_nested_types() -> None:
+    schema = load_recipe_schema(get_settings().schema_path)
+    candidate = {
+        "style_tag": "bad-types",
+        "global_adjustments": "unexpected",
+        "tone_curve": ["bad-point", {"x": 1.0, "y": 1.0}],
+        "hsl_bands": {"red": "invalid-band"},
+        "color_grading": {"shadows": "bad-zone"},
+    }
+    model, messages, fallback = validate_recipe_or_fallback(candidate, schema)
+    assert fallback is False
+    assert messages
+    assert model.style_tag == "bad-types"
+    assert len(model.tone_curve) >= 2
+    assert model.hsl_bands.red.hue == 0
+    assert model.color_grading.shadows.hue == 0

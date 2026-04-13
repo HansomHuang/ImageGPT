@@ -156,6 +156,8 @@ def _brief_error(exc: Exception) -> str:
 def _sanitize_curve(curve: list[dict[str, Any]]) -> list[dict[str, float]]:
     cleaned: list[dict[str, float]] = []
     for point in curve:
+        if not isinstance(point, dict):
+            continue
         x = clamp(float(point.get("x", 0.0)), 0.0, 1.0)
         y = clamp(float(point.get("y", 0.0)), 0.0, 1.0)
         cleaned.append({"x": x, "y": y})
@@ -189,9 +191,23 @@ def clamp_recipe_dict(candidate: Any) -> dict[str, Any]:
     candidate = {k: v for k, v in candidate.items() if k in top_level_allowed}
 
     recipe = _deep_merge(default_recipe().model_dump(mode="json"), candidate)
+    defaults = default_recipe().model_dump(mode="json")
     recipe["version"] = "1.0"
     recipe["style_tag"] = str(recipe.get("style_tag", "default"))[:64] or "default"
     recipe["confidence"] = clamp(float(recipe.get("confidence", 0.5)), 0.0, 1.0)
+
+    if not isinstance(recipe.get("global_adjustments"), dict):
+        recipe["global_adjustments"] = copy.deepcopy(defaults["global_adjustments"])
+    if not isinstance(recipe["global_adjustments"].get("white_balance"), dict):
+        recipe["global_adjustments"]["white_balance"] = copy.deepcopy(
+            defaults["global_adjustments"]["white_balance"]
+        )
+    if not isinstance(recipe["global_adjustments"].get("tone"), dict):
+        recipe["global_adjustments"]["tone"] = copy.deepcopy(defaults["global_adjustments"]["tone"])
+    if not isinstance(recipe["global_adjustments"].get("finishing"), dict):
+        recipe["global_adjustments"]["finishing"] = copy.deepcopy(
+            defaults["global_adjustments"]["finishing"]
+        )
 
     global_adj = recipe["global_adjustments"]
     wb = global_adj["white_balance"]
@@ -210,16 +226,26 @@ def clamp_recipe_dict(candidate: Any) -> dict[str, Any]:
     for key in ("clarity", "dehaze", "vignette"):
         finishing[key] = clamp(float(finishing.get(key, 0)), -100, 100)
 
+    if not isinstance(recipe.get("tone_curve"), list):
+        recipe["tone_curve"] = copy.deepcopy(defaults["tone_curve"])
     recipe["tone_curve"] = _sanitize_curve(recipe.get("tone_curve", []))
 
+    if not isinstance(recipe.get("hsl_bands"), dict):
+        recipe["hsl_bands"] = copy.deepcopy(defaults["hsl_bands"])
     for band in ("red", "orange", "yellow", "green", "aqua", "blue", "purple", "magenta"):
+        if not isinstance(recipe["hsl_bands"].get(band), dict):
+            recipe["hsl_bands"][band] = copy.deepcopy(defaults["hsl_bands"][band])
         values = recipe["hsl_bands"][band]
         values["hue"] = clamp(float(values.get("hue", 0)), -100, 100)
         values["saturation"] = clamp(float(values.get("saturation", 0)), -100, 100)
         values["luminance"] = clamp(float(values.get("luminance", 0)), -100, 100)
 
+    if not isinstance(recipe.get("color_grading"), dict):
+        recipe["color_grading"] = copy.deepcopy(defaults["color_grading"])
     grading = recipe["color_grading"]
     for key in ("shadows", "midtones", "highlights"):
+        if not isinstance(grading.get(key), dict):
+            grading[key] = copy.deepcopy(defaults["color_grading"][key])
         tone_item = grading[key]
         tone_item["hue"] = clamp(float(tone_item.get("hue", 0)), 0, 360)
         tone_item["sat"] = clamp(float(tone_item.get("sat", 0)), 0, 100)
