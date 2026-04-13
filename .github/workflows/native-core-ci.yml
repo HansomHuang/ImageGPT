@@ -24,14 +24,16 @@ jobs:
             libraw-dev \
             liblcms2-dev \
             libopenimageio-dev \
+            libopencv-dev \
             openimageio-tools \
             pybind11-dev \
             python3-dev
 
-      - name: Verify OpenImageIO CLI tools
+      - name: Verify Native Dependencies
         run: |
           which iconvert
           iconvert --help >/dev/null
+          test -d /usr/include/opencv4
 
       - name: Configure
         run: cmake -S core -B core/build -G Ninja -DCMAKE_BUILD_TYPE=Release
