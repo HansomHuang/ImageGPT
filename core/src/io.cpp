@@ -144,7 +144,7 @@ void write_image_file(
 }
 
 ImageFrame resize_bilinear(const ImageFrame& frame, const int max_edge) {
-  if (max_edge <= 0 || frame.width <= max_edge && frame.height <= max_edge) {
+  if (max_edge <= 0 || (frame.width <= max_edge && frame.height <= max_edge)) {
     return frame;
   }
 
@@ -186,4 +186,6 @@ ImageFrame resize_bilinear(const ImageFrame& frame, const int max_edge) {
   }
   return resized;
 }
+
+}  // namespace imagegpt
 
