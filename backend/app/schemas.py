@@ -116,6 +116,9 @@ class ImportImageResponse(BaseModel):
     path: str
     exists: bool
     metadata: dict[str, Any]
+    preview_path: str | None = None
+    preview_width: int | None = None
+    preview_height: int | None = None
 
 
 class AnalyzeRequest(BaseModel):
@@ -185,4 +188,3 @@ def recipe_to_dict(recipe: RecipeModel) -> dict[str, Any]:
 
 def coerce_path(value: str | Path) -> Path:
     return Path(value).expanduser().resolve()
-

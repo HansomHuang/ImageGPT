@@ -25,7 +25,7 @@ class ImageService:
         return metadata
 
     def render_preview(
-        self, image_path: Path, recipe: dict[str, Any], prefer_raw: bool
+        self, image_path: Path, recipe: dict[str, Any], prefer_raw: bool, variant: str = "preview"
     ) -> tuple[Path, int, int]:
         preview = self.core.render_preview(
             image_path=image_path,
@@ -33,7 +33,9 @@ class ImageService:
             max_edge=self.settings.preview_max_edge,
             prefer_raw=prefer_raw,
         )
-        preview_path = self.preview_dir / f"{image_path.stem}_preview.jpg"
+        safe_variant = "".join(ch for ch in variant.lower() if ch.isalnum() or ch in {"_", "-"})
+        safe_variant = safe_variant or "preview"
+        preview_path = self.preview_dir / f"{image_path.stem}_{safe_variant}.jpg"
         self._save_preview(preview, preview_path)
         height, width = preview.shape[:2]
         return preview_path, width, height
@@ -68,4 +70,3 @@ class ImageService:
         array = np.clip(image, 0.0, 1.0)
         rgb = (array * 255.0).astype(np.uint8)
         Image.fromarray(rgb, mode="RGB").save(output_path, format="JPEG", quality=90)
-

@@ -12,6 +12,7 @@ def test_e2e_jpeg_path(sample_jpeg: Path, test_workspace: Path) -> None:
         import_res = client.post("/v1/images/import", json={"path": str(sample_jpeg)})
         assert import_res.status_code == 200
         assert import_res.json()["exists"] is True
+        assert Path(import_res.json()["preview_path"]).exists()
 
         recipe_res = client.post("/v1/recipe/reset")
         assert recipe_res.status_code == 200

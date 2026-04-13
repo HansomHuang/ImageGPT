@@ -54,6 +54,8 @@ class CoreAdapter:
             "oiio": False,
             "libraw": False,
             "lcms2": False,
+            "rawpy": python_pipeline.rawpy is not None,
+            "raw_fallback": python_pipeline.rawpy is not None,
             "fallback_python_pipeline": True,
         }
 
@@ -100,4 +102,3 @@ class CoreAdapter:
         image = python_pipeline.load_image(image_path, max_edge=None)
         edited = python_pipeline.apply_recipe(image, recipe)
         python_pipeline.save_image(edited, output_path, image_format=image_format, quality=quality)
-

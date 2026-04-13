@@ -1,19 +1,26 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-const BACKEND_BASE = "http://127.0.0.1:8000";
+const BACKEND_BASE = process.env.IMGGPT_BACKEND_URL ?? "http://127.0.0.1:8000";
 
 async function apiRequest<T>(
   path: string,
   method: "GET" | "POST" = "GET",
   body?: unknown,
 ): Promise<T> {
-  const response = await fetch(`${BACKEND_BASE}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BACKEND_BASE}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    throw new Error(
+      `Cannot reach backend at ${BACKEND_BASE}. Start backend first and confirm /health is reachable. Original error: ${error}`,
+    );
+  }
 
   if (!response.ok) {
     const text = await response.text();
@@ -65,4 +72,3 @@ const api = {
 };
 
 contextBridge.exposeInMainWorld("imagegpt", api);
-

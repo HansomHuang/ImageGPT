@@ -34,6 +34,94 @@ def _looks_like_recipe(payload: dict[str, Any]) -> bool:
     return len(anchors.intersection(payload.keys())) >= 2
 
 
+def _provider_flat_recipe_to_imagegpt(candidate: dict[str, Any]) -> dict[str, Any]:
+    provider_keys = {
+        "exposure",
+        "contrast",
+        "highlights",
+        "shadows",
+        "whites",
+        "blacks",
+        "clarity",
+        "dehaze",
+        "vibrance",
+        "saturation",
+        "temperature",
+        "tint",
+        "highlight_hue_shift",
+        "shadow_hue_shift",
+        "skin_tone_protection",
+        "highlight_rolloff",
+        "notes",
+        "warnings",
+    }
+    if len(provider_keys.intersection(candidate.keys())) < 4:
+        return candidate
+    if _looks_like_recipe(candidate):
+        return candidate
+
+    recipe = default_recipe().model_dump(mode="json")
+    recipe["style_tag"] = str(candidate.get("style_tag", "provider-adapted"))[:64] or "provider-adapted"
+    recipe["confidence"] = clamp(float(candidate.get("confidence", 0.7)), 0.0, 1.0)
+
+    def scaled(name: str, scale: float = 100.0, lo: float = -100.0, hi: float = 100.0) -> float:
+        raw = candidate.get(name, 0.0)
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return 0.0
+        if abs(value) <= 1.5:
+            value *= scale
+        return clamp(value, lo, hi)
+
+    tone = recipe["global_adjustments"]["tone"]
+    tone["exposure"] = clamp(float(candidate.get("exposure", 0.0)), -5.0, 5.0)
+    tone["contrast"] = scaled("contrast")
+    tone["highlights"] = scaled("highlights")
+    tone["shadows"] = scaled("shadows")
+    tone["whites"] = scaled("whites")
+    tone["blacks"] = scaled("blacks")
+
+    wb = recipe["global_adjustments"]["white_balance"]
+    wb["temperature"] = scaled("temperature")
+    wb["tint"] = scaled("tint")
+
+    recipe["global_adjustments"]["vibrance"] = scaled("vibrance")
+    recipe["global_adjustments"]["saturation"] = scaled("saturation")
+
+    finishing = recipe["global_adjustments"]["finishing"]
+    finishing["clarity"] = scaled("clarity")
+    finishing["dehaze"] = scaled("dehaze")
+
+    highlight_hue_shift = candidate.get("highlight_hue_shift")
+    shadow_hue_shift = candidate.get("shadow_hue_shift")
+    if isinstance(highlight_hue_shift, (int, float)):
+        recipe["color_grading"]["highlights"]["hue"] = clamp(40.0 + float(highlight_hue_shift) * 120.0, 0.0, 360.0)
+        recipe["color_grading"]["highlights"]["sat"] = 8.0
+    if isinstance(shadow_hue_shift, (int, float)):
+        recipe["color_grading"]["shadows"]["hue"] = clamp(220.0 + float(shadow_hue_shift) * 120.0, 0.0, 360.0)
+        recipe["color_grading"]["shadows"]["sat"] = 8.0
+
+    note_parts: list[str] = []
+    if candidate.get("notes"):
+        note_parts.append(str(candidate["notes"]))
+    if isinstance(candidate.get("highlight_rolloff"), str):
+        note_parts.append(f"Highlight rolloff: {candidate['highlight_rolloff']}.")
+    if isinstance(candidate.get("skin_tone_protection"), bool):
+        note_parts.append(
+            "Skin tone protection requested."
+            if candidate["skin_tone_protection"]
+            else "Skin tone protection not requested."
+        )
+    recipe["notes"] = " ".join(part.strip() for part in note_parts if part).strip()[:256]
+
+    raw_warnings = candidate.get("warnings", [])
+    if isinstance(raw_warnings, str):
+        raw_warnings = [raw_warnings]
+    recipe["warnings"] = [str(item)[:140] for item in raw_warnings[:8]]
+    return recipe
+
+
 def _extract_recipe_payload(candidate: Any, depth: int = 0) -> dict[str, Any]:
     if depth > 4:
         return {}
@@ -54,7 +142,7 @@ def _extract_recipe_payload(candidate: Any, depth: int = 0) -> dict[str, Any]:
         if isinstance(nested, dict):
             extracted = _extract_recipe_payload(nested, depth + 1)
             return extracted
-    return candidate
+    return _provider_flat_recipe_to_imagegpt(candidate)
 
 
 def _brief_error(exc: Exception) -> str:

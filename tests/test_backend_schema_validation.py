@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.config import get_settings
 from app.utils.validation import load_recipe_schema, validate_recipe_or_fallback
 
@@ -74,3 +76,34 @@ def test_schema_validation_handles_non_object_payload() -> None:
     assert model.version == "1.0"
     assert fallback is False
     assert any("not a recipe object" in msg for msg in messages)
+
+
+def test_schema_validation_adapts_flat_provider_recipe() -> None:
+    schema = load_recipe_schema(get_settings().schema_path)
+    candidate = {
+        "exposure": 0.35,
+        "contrast": 0.28,
+        "highlights": -0.12,
+        "shadows": 0.18,
+        "whites": 0.22,
+        "blacks": -0.08,
+        "clarity": 0.24,
+        "vibrance": 0.31,
+        "saturation": 0.19,
+        "temperature": 0.07,
+        "tint": 0.03,
+        "highlight_hue_shift": 0.0,
+        "shadow_hue_shift": 0.0,
+        "skin_tone_protection": True,
+        "highlight_rolloff": "natural",
+        "notes": "Provider returned a flat adjustment object.",
+        "warnings": ["Watch specular highlights."],
+    }
+    model, messages, fallback = validate_recipe_or_fallback(candidate, schema)
+    assert fallback is False
+    assert messages == []
+    assert model.global_adjustments.tone.exposure == pytest.approx(0.35)
+    assert model.global_adjustments.tone.contrast == pytest.approx(28.0)
+    assert model.global_adjustments.vibrance == pytest.approx(31.0)
+    assert model.global_adjustments.white_balance.temperature == pytest.approx(7.0)
+    assert "Highlight rolloff" in model.notes

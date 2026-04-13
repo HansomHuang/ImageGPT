@@ -81,9 +81,10 @@ elements.importBtn.addEventListener("click", async () => {
       return;
     }
     currentImagePath = path;
-    elements.beforeImage.src = fileUrl(path);
-    elements.afterImage.removeAttribute("src");
     const imported = await window.imagegpt.importImage(path);
+    const beforePreview = imported.preview_path ? fileUrl(imported.preview_path) : fileUrl(path);
+    elements.beforeImage.src = `${beforePreview}?t=${Date.now()}`;
+    elements.afterImage.removeAttribute("src");
     currentMetadata = imported.metadata;
     elements.metadataBox.textContent = JSON.stringify(imported.metadata, null, 2);
     log(`Imported image: ${path}`);
@@ -193,4 +194,3 @@ elements.savePresetBtn.addEventListener("click", async () => {
 });
 
 initialize().catch((error) => log(`Initialization failed: ${error}`));
-

@@ -12,6 +12,7 @@
 - [x] Implement developer scripts for combined run (`scripts/dev.py`) and tests (`scripts/test.py`)
 - [x] Implement required unit/integration/smoke tests and run suite successfully (9 passed)
 - [x] Add CI workflows for backend tests, desktop build, and native core smoke build
+- [x] Add working RAW fallback path via `rawpy` and verify import/apply/export on a real `.NEF`
 
 ## In Progress
 - [ ] Verify native C++ build in this environment (blocked locally: `cmake` missing; CI workflow added)
@@ -20,4 +21,4 @@
 ## Remaining
 - [x] Validate end-to-end run with local JPEG API path
 - [x] Document native dependency installation and architecture
-- [ ] Expand RAW test fixtures when sample RAW is available
+- [x] Expand RAW test coverage with fallback decoder smoke/integration checks

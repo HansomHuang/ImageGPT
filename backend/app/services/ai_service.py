@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ast
 import base64
 import json
 import logging
+import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,8 @@ Translate the prompt into concrete non-zero color grading parameters when approp
 If the user asks for brighter, darker, warmer, cooler, more energetic, softer, moodier, cinematic,
 cleaner, muted, vivid, or similar directions, reflect that in the numeric recipe fields.
 """
+
+WRAPPED_RECIPE_KEYS = ("color_recipe", "recipe", "result", "data", "payload", "output", "response")
 
 
 class AIService:
@@ -70,6 +74,97 @@ class AIService:
                     if maybe_text:
                         chunks.append(maybe_text)
         return "\n".join(chunks).strip()
+
+    @staticmethod
+    def _strip_code_fences(text: str) -> str:
+        candidate = text.strip()
+        if candidate.startswith("```"):
+            candidate = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", candidate, count=1)
+            candidate = re.sub(r"\s*```$", "", candidate, count=1)
+        return candidate.strip()
+
+    @staticmethod
+    def _extract_balanced_json(text: str) -> str:
+        start = -1
+        opener = ""
+        for index, char in enumerate(text):
+            if char in "{[":
+                start = index
+                opener = char
+                break
+        if start < 0:
+            return text
+
+        closer = "}" if opener == "{" else "]"
+        depth = 0
+        in_string = False
+        escape = False
+        for index in range(start, len(text)):
+            char = text[index]
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char == opener:
+                depth += 1
+            elif char == closer:
+                depth -= 1
+                if depth == 0:
+                    return text[start : index + 1]
+        return text[start:]
+
+    @staticmethod
+    def _remove_trailing_commas(text: str) -> str:
+        return re.sub(r",\s*([}\]])", r"\1", text)
+
+    @staticmethod
+    def _normalize_quotes(text: str) -> str:
+        return (
+            text.replace("\u201c", '"')
+            .replace("\u201d", '"')
+            .replace("\u2018", "'")
+            .replace("\u2019", "'")
+        )
+
+    @classmethod
+    def _parse_response_payload(cls, raw_text: str) -> Any:
+        cleaned = cls._normalize_quotes(cls._strip_code_fences(raw_text))
+        candidates: list[str] = []
+        for value in (raw_text.strip(), cleaned, cls._extract_balanced_json(cleaned)):
+            if value and value not in candidates:
+                candidates.append(value)
+
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        repaired_candidates: list[str] = []
+        for candidate in candidates:
+            repaired = cls._remove_trailing_commas(candidate)
+            if repaired not in repaired_candidates:
+                repaired_candidates.append(repaired)
+
+        for candidate in repaired_candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        for candidate in repaired_candidates:
+            try:
+                return ast.literal_eval(candidate)
+            except (SyntaxError, ValueError):
+                continue
+
+        raise json.JSONDecodeError("Unable to parse provider JSON output", cleaned, 0)
 
     def analyze(
         self,
@@ -126,7 +221,13 @@ class AIService:
                 },
             )
             raw_text = self._response_text(response)
-            payload = json.loads(raw_text)
+            payload = self._parse_response_payload(raw_text)
+            if isinstance(payload, dict) and style_intent and not payload.get("style_tag"):
+                payload["style_tag"] = style_intent[:64]
+                for key in WRAPPED_RECIPE_KEYS:
+                    nested = payload.get(key)
+                    if isinstance(nested, dict) and not nested.get("style_tag"):
+                        nested["style_tag"] = style_intent[:64]
             return payload, [], False
         except Exception as exc:
             LOGGER.exception("OpenAI analyze failed: %s", exc)
